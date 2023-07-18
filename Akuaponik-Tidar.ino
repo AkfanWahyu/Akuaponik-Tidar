@@ -22,6 +22,27 @@ char keys[ROW_NUM][COLUMN_NUM] = {
   {'*','0','#','D'}
 };
 
+//VARIABLE PH
+#define KALIBRASI_PH false
+#define NILAI_PH_KALIBRASI  4.01
+#define SAMPLING_KALIBRASI  200
+
+#define SensorPin A0
+#define Offset    30.8746592
+#define k         -7.326059232
+#define LED       13
+#define samplingInterval  20
+#define printInterval     800
+#define ArrayLenth        40    // times of collection
+#define TAMPIL_SERIAL     true  // tampilkan hasil di serial monitor
+
+int pHArray[ArrayLenth];   // Menyimpan nilai rata2 hasil pembacaan sensor
+int pHArrayIndex = 0;
+
+static double pHValue, voltage, TDSValue;
+//VARIABLE PH
+static unsigned long printTime = millis();
+
 byte pin_rows[ROW_NUM] = {9,8,7,6}; //rows pin, we use analog pin here, there's a chance analog pins will be use for sensors, adjust accordingly!
 byte pin_column[COLUMN_NUM] = {5,4,3,2}; //same for column, we use analog pins too
 
@@ -82,7 +103,75 @@ void setup() {
 }
 
 void loop() {
-  keyPadController(); //call keypad controller function
+  calculatePh();
+  calculateTDS();
+  keyPadController();
+  if(currentState == 2){
+    printPH();
+  }
+}
+
+void calculateTDS(){
+  TDSValue;
+}
+
+double avergearray(int* arr, int number) 
+{
+  int i;
+  int max, min;
+  double avg;
+  long amount = 0;
+  if(number <= 0) {
+    return 0;
+  }
+  else if(number < 5) { //less than 5, calculated directly statistics
+    for (i = 0; i < number; i++) {
+      amount += arr[i];
+    }
+    avg = amount / number;
+    return avg;
+  }
+  else {
+    if(arr[0] < arr[1]) {
+      min = arr[0]; max = arr[1];
+    }
+    else {
+      min = arr[1]; max = arr[0];
+    }
+    for (i = 2; i < number; i++){
+      if (arr[i] < min) {
+        amount += min;      //arr<min
+        min = arr[i];
+      } 
+      else{
+        if (arr[i] > max) {
+          amount += max;  //arr>max
+          max = arr[i];
+        } 
+        else {
+          amount += arr[i]; //min<=arr<=max
+        }
+      }//if
+    }//for
+    avg = (double)amount/(number - 2);
+    return avg;
+  }
+}
+
+void calculatePh(){
+  static unsigned long samplingTime = millis();
+  
+
+  if (millis() - samplingTime > samplingInterval) {
+    pHArray[pHArrayIndex++] = analogRead(SensorPin);
+    if (pHArrayIndex == ArrayLenth) pHArrayIndex = 0;
+
+    voltage = avergearray(pHArray, ArrayLenth) * 5.0 / 1024;
+    pHValue = k * voltage + Offset;
+    samplingTime = millis();
+  }
+
+  
 }
 
 void keyPadController()
@@ -249,9 +338,6 @@ void displayMenu() {
     lcd.clear();
     if(currentMenu == 1)
     {
-      lcd.clear();
-      lcd.setCursor(0, 0);
-      lcd.print("pH S1 : " + String(sayur1_phValue));
       lcd.setCursor(0, 1);
       lcd.print("TDS S1 : " + String(sayur1_TDSValue));
     }
@@ -362,6 +448,22 @@ void displayMenu() {
       }
     }
     
+  }
+
+  void printPH()
+  {
+    if (millis() - printTime > printInterval) 
+      {
+        lcd.setCursor(9, 0);
+        lcd.print("        ");
+        lcd.setCursor(9, 0);
+        lcd.print(pHValue);
+        lcd.setCursor(9, 1);
+        lcd.print("        ");
+        lcd.setCursor(9, 1);
+        lcd.print(TDSValue);
+        printTime = millis();
+      }
   }
 
   void changeSetPoint()
